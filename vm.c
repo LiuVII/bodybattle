@@ -133,19 +133,86 @@ void	init_vm(vm_t *vm)
 	bzero(vm->champs, MAX_PLAYERS * sizeof(champ_t*));
 }
 
-void	run_vm(vm_t *vm)
+void	load_instr(vm_t *vm, champ_ind)
+{
+	return ;
+}
+
+void	exec_instr(vm_t *vm, proc_t *proc)
+{
+	return ;
+}
+
+void	check_alive(vm_t *vm)
 {
 	int	i;
 	int	counter;
 
 	i = 0;
 	counter = 0;
+	while (i < vm->champ_num)
+	{
+		// Check if alive and remove dead
+		if (vm->champs[i]->live == 0)
+		{
+			vm->champs[i]->live = -1;
+			// ! Remove from arrays possibly (then no need to check for live)
+			// ft_remove(vm->champs, i);
+			// ft_remove(vm->procs, vm->champ_num - i - 1);
+			// vm->champ_num--;
+			// i--;
+		}
+		else
+		{
+			vm->champs[i]->live = 0;
+			counter++;
+		}
+		i++;
+	}
+	return counter;
+}
+
+void	game_over(vm_t *vm)
+{
+	if (vm->last_alive > 0)
+		ft_printf("Player %d (%s) won\n", vm->champs[last_alive]->ind,
+			vm->champs[last_alive]->info->prog_name);
+	else
+		ft_putstr("The many men, so beautiful!\nAnd they all dead did lie.\n");
+	free_and_exit(0);
+}
+
+
+void	run_vm(vm_t *vm)
+{
+	int	i;
+	int	counter;
+
+	counter = 0;
 	while (1)
 	{
-		// Load incturctions into queue
-		
+		// Load incturctions into process queue
+		i = 0;
+		while (i < vm->champ_num)
+		{
+			if (vm->procs[i] == 0
+				&& vm->champs[vm->champ_num - i - 1]->live >= 0)
+				load_instr(vm, vm->champ_num - i - 1);
+			i++;
+		}
 		// Execute instructions
-		
+		i = 0;
+		while (++i < vm->champ_num)
+		{
+			if (vm->procs[i] != 0
+				&& vm->champs[vm->champ_num - i - 1]->live >= 0)
+			{
+				vm->procs[i]->exec_cycle -= 1;
+				if (vm->procs[i]->exec_cycle == 0)
+					exec_instr(vm, vm->procs[i]);
+			}
+			i++;
+		}
 		// Check conditions
 		if (vm->cycle == CYCLES_TO_DIE)
 			if (check_alive(vm) == 0)
