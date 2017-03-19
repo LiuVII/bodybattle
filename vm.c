@@ -15,7 +15,7 @@
 /*
 ** Free memory allocated within vm structure (if any)
 */
-void	free_mem(vm_t *vm)
+void	free_mem(t_vm *vm)
 {
 	return ;
 }
@@ -40,7 +40,7 @@ void	display_usage()
 ** 8 -
 ** 9 -
 */
-void	free_and_exit(vm_t *vm, int code)
+void	free_and_exit(t_vm *vm, int code)
 {
 	if (vm)
 		free_mem(vm);
@@ -53,7 +53,7 @@ void	free_and_exit(vm_t *vm, int code)
 /*
 ** Load champion
 */
-void load_champ(vm_t *vm, champ_file, champ_ind)
+void load_champ(t_vm *vm, champ_file, champ_ind)
 {
 	int	flen;
 	int	i;
@@ -86,13 +86,13 @@ void load_champ(vm_t *vm, champ_file, champ_ind)
 		vm->champs[vm->champ_num]->ind = champ_ind;
 	vm->champ_num++;
 	
-	// ! Set header and load instructons
+	// ! Set header and load instructions
 }
 
 /*
 ** Parse, check flags and call load champions
 */
-void	parse_flags(vm_t *vm, int ac, char const **av)
+void	parse_flags(t_vm *vm, int ac, char const **av)
 {
 	int	i;
 	int	num;
@@ -122,28 +122,28 @@ void	parse_flags(vm_t *vm, int ac, char const **av)
 	} 
 }
 
-void	init_vm(vm_t *vm)
+void	init_vm(t_vm *vm)
 {
 	vm->cycles_to_die = CYCLES_TO_DIE;
-	vm->cycles_to_dump = 0;
+	vm->cycles_to_dump = -1;
 	vm->cycle = 0;
 	vm->champ_num = 0;
 	vm->nbr_live_calls = 0;
-	bzero(vm->memory, MEM_SIZE);
-	bzero(vm->champs, MAX_PLAYERS * sizeof(champ_t*));
+	ft_bzero(vm->memory, MEM_SIZE);
+	ft_bzero(vm->champs, MAX_PLAYERS * sizeof(champ_t*));
 }
 
-void	load_instr(vm_t *vm, champ_ind)
+void	load_instr(t_vm *vm, champ_ind)
 {
 	return ;
 }
 
-void	exec_instr(vm_t *vm, proc_t *proc)
+void	exec_instr(t_vm *vm, t_proc *proc)
 {
 	return ;
 }
 
-void	check_alive(vm_t *vm)
+void	check_alive(t_vm *vm)
 {
 	int	i;
 	int	counter;
@@ -152,13 +152,13 @@ void	check_alive(vm_t *vm)
 	counter = 0;
 	while (i < vm->champ_num)
 	{
-		// Check if alive and remove dead
+		// Check if alive and set dead otherwise
 		if (vm->champs[i]->live == 0)
 		{
 			vm->champs[i]->live = -1;
 			// ! Remove from arrays possibly (then no need to check for live)
-			// ft_remove(vm->champs, i);
-			// ft_remove(vm->procs, vm->champ_num - i - 1);
+			// ft_remove_int(vm->champs, i);
+			// ft_remove_int(vm->procs, vm->champ_num - i - 1);
 			// vm->champ_num--;
 			// i--;
 		}
@@ -172,7 +172,7 @@ void	check_alive(vm_t *vm)
 	return counter;
 }
 
-void	game_over(vm_t *vm)
+void	game_over(t_vm *vm)
 {
 	if (vm->last_alive > 0)
 		ft_printf("Player %d (%s) won\n", vm->champs[last_alive]->ind,
@@ -182,8 +182,29 @@ void	game_over(vm_t *vm)
 	free_and_exit(0);
 }
 
+void	mem_dump(t_vm *vm)
+{
+	int 			i;
+	char			basestr = "0123456789ABCDEF";
+	unsigned char	c;
 
-void	run_vm(vm_t *vm)
+	i = 0;
+	while ((vm->memory)[i])
+	{
+		c = (unsigned char)(vm->memory)[i];
+		write(1, &basestr[c / 16], 1);
+		write(1, &basestr[c % 16], 1);
+		i++;
+		if (i % 32 == 0)
+			ft_putstr("\n");
+		else
+			ft_putstr(" ");
+	}
+	free_and_exit(0);
+}
+
+
+void	run_vm(t_vm *vm)
 {
 	int	i;
 	int	counter;
@@ -214,10 +235,16 @@ void	run_vm(vm_t *vm)
 			i++;
 		}
 		// Check conditions
+		(vm->cycles_to_dump >= 0) ? vm->cycles_to_dump-- : 0;
+		if (vm->cycles_to_dump == 0)
+			mem_dump(vm);
 		if (vm->cycle == CYCLES_TO_DIE)
+		{
+			vm->checks = (vm->checks + 1) % MAX_CHECKS;
 			if (check_alive(vm) == 0)
 				break ;
-		if (vm->nbr_live_calls == NBR_LIVE || vm->cycle == MAX_CHECKS)
+		}
+		if (vm->nbr_live_calls == NBR_LIVE || (vm->checks == 0 && vm->cycle != 0))
 		{
 			vm->cycles_to_die -= CYCLE_DELTA;
 			vm->cycle = 0;
@@ -230,7 +257,7 @@ void	run_vm(vm_t *vm)
 
 int	main(int argc, char const **argv)
 {
-	vm_t	vm;
+	t_vm	vm;
 
 	if (argc < 3)
 	{
