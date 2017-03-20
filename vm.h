@@ -17,9 +17,10 @@
 
 typedef struct	s_champ
 {
+	int			r1;
 	int			ind;
 	header_t*	info;
-	char*		pc;
+	int			pc;
 	int			carry;
 	char		regs[REG_NUMBER][REG_SIZE];
 	int			live;
@@ -29,11 +30,13 @@ typedef struct	s_champ
 
 typedef struct	s_proc
 {
+	int			pc;
 	int			champ_id;
 	int			exec_cycle;
 	int			proc_id;
-	int			params[MAX_ARGS_NUMBER];
-	int			params_count;
+	int			args[MAX_ARGS_NUMBER];
+	int			arg_types[MAX_ARGS_NUMBER];
+	int			arg_count;
 
 }				t_proc;
 

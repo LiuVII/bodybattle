@@ -133,14 +133,95 @@ void	init_vm(t_vm *vm)
 	ft_bzero(vm->champs, MAX_PLAYERS * sizeof(champ_t*));
 }
 
-void	load_instr(t_vm *vm, champ_ind)
+int		get_arg(char *mem, int size, int *pos)
 {
-	return ;
+	int i;
+	int	ans;
+
+	i = 0
+	ans = 0
+	while (i < size)
+	{
+		ans = ans << 8;
+		ans = mem[pos];
+		*pos = (*pos + 1) % MEM_SIZE; 
+		i++;
+	}
+	return (ans);
 }
 
-void	exec_instr(t_vm *vm, t_proc *proc)
+void	proc_init(t_proc *proc)
 {
-	return ;
+	proc = (t_proc*)malloc(sizeof(t_proc));
+	ft_bzero(proc, sizeof(t_proc));
+}
+
+
+
+/*
+** Loading instructions with current params for subsequent execution.
+** ! Currently loaded form champ memory but should be from VM_memory,
+** or champ memory should change
+*/
+
+void	load_instr(t_vm *vm, t_champ *champ, t_proc *proc, int ind)
+{
+	int	pos;
+	int arg_byte;
+	int	i;
+
+	pos = champ->pc;
+	// If corrupted instruction dunno what to do with it
+	if (champ->regs[pos] > 16)
+	{
+		champ->pc = (pos + 1) % MEM_SIZE;
+		return ;
+	}
+	proc_init(proc);
+	proc->champ_id = vm->champ_num - ind - 1;
+	proc->proc_id = champ->regs[pos] - 1;
+	proc->exec_cycle = g_op_tab[proc->proc_id].cycles;
+	pos = (pos + 1) % MEM_SIZE;
+	// if there's no encoding byte (live has a special condition of 4 bytes)
+	if (proc->proc_id == 0)
+		proc->args[0] = get_arg(champ->regs, 4, &pos);
+	else if (g_op_tab[proc->proc_id].arg_code_byte == 0)
+		proc->args[0] = get_arg(champ->regs, T_DIR, &pos);
+	else
+	{
+		// decipher encoding byte and record params
+		arg_byte = champ->regs[pos];
+		pos = (pos + 1) % MEM_SIZE;
+		proc->arg_types[0] = arg_byte >> 6;
+		proc->arg_types[1] = (arg_byte >> 4) % 4;
+		proc->arg_types[2] = (arg_byte >> 2) % 4;
+		proc->arg_types[3] = arg_byte % 4;
+		i = 0;
+		while (i < 4)
+		{
+			if (proc->arg_types[i] == REG_CODE)
+				proc->args[i] = get_arg(champ->regs, T_REG, &pos);
+			else if (proc->arg_types[i] == DIR_CODE)
+				proc->args[i] = get_arg(champ->regs, T_DIR, &pos);
+			else if (proc->arg_types[i] == IND_CODE)
+				proc->args[i] = get_arg(champ->regs, T_DIR, &pos);
+			i++;
+		}
+	}
+	champ->pc = pos;
+}
+
+void	exec_instr(t_vm *vm, t_proc *proc, int i)
+{
+	int res;
+
+	res = g_op_tab[proc->proc_id]->op(vm, proc);
+	free(vm->procs[i]);
+	vm->procs[i] = 0;
+	if (res == 0)
+		vm->champs[vm->champ_num - i - 1]->carry = 1;
+	else
+		vm->champs[vm->champ_num - i - 1]->carry = 0;
 }
 
 void	check_alive(t_vm *vm)
@@ -218,7 +299,7 @@ void	run_vm(t_vm *vm)
 		{
 			if (vm->procs[i] == 0
 				&& vm->champs[vm->champ_num - i - 1]->live >= 0)
-				load_instr(vm, vm->champ_num - i - 1);
+				load_instr(vm, vm->champs[vm->champ_num - i - 1], vm->procs[i], i);
 			i++;
 		}
 		// Execute instructions
@@ -230,7 +311,7 @@ void	run_vm(t_vm *vm)
 			{
 				vm->procs[i]->exec_cycle -= 1;
 				if (vm->procs[i]->exec_cycle == 0)
-					exec_instr(vm, vm->procs[i]);
+					exec_instr(vm, vm->procs[i], i);
 			}
 			i++;
 		}
