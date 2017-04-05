@@ -47,16 +47,18 @@ int				op_live(t_vm *vm, t_proc *proc)
 */
 int				op_ld(t_vm *vm, t_proc *proc)
 {
+	int address;
+
 	if (!proc->arg_types[0] || proc->arg_types[1] != REG_CODE)
 		return (1);
 	address = (vm->champs[proc->champ_id]->r1
-	+ (proc->arg[1] - 1) * REG_SIZE) % MEM_SIZE;
+	+ (proc->args[1] - 1) * REG_SIZE) % MEM_SIZE;
 	if (proc->arg_types[0] == REG_CODE)
-		ft_strncpy(&(vm->memory[address]), proc->arg[0], REG_SIZE);
+		ft_memcpy(&(vm->memory[address]), &(proc->args[0]), REG_SIZE);
 	else if (proc->arg_types[0] == DIR_CODE)
-		ft_strncpy(&(vm->memory[address]), proc->arg[0], REG_SIZE);
+		ft_memcpy(&(vm->memory[address]), &(proc->args[0]), REG_SIZE);
 	else if (proc->arg_types[0] == IND_CODE)
-		ft_strncpy(&(vm->memory[address]), proc->arg[0], REG_SIZE);
+		ft_memcpy(&(vm->memory[address]), &(proc->args[0]), REG_SIZE);
 	else
 		return (1);
 	vm->champs[proc->champ_id]->carry = 1 - vm->champs[proc->champ_id]->carry;
@@ -71,19 +73,21 @@ int				op_ld(t_vm *vm, t_proc *proc)
 */
 int				op_st(t_vm *vm, t_proc *proc)
 {
+	int address;
+
 	if (proc->arg_types[0] != REG_CODE ||
 		(proc->arg_types[1] != REG_CODE && proc->arg_types[1] != IND_CODE))
 		return (1);
-	if (proc->arg_types[1] = REG_CODE)
+	if (proc->arg_types[1] == REG_CODE)
 	{
 		address = (vm->champs[proc->champ_id]->r1
-		+ (proc->arg[1] - 1) * REG_SIZE) % MEM_SIZE;
-		ft_strncpy(&(vm->memory[address]), proc->arg[0], REG_SIZE);
+		+ (proc->args[1] - 1) * REG_SIZE) % MEM_SIZE;
+		ft_memcpy(&(vm->memory[address]), &(proc->args[0]), REG_SIZE);
 	}
 	else
 	{
-		address = (proc->pc + proc->arg[1] % IDX_MOD) % MEM_SIZE;
-		ft_strncpy(&(vm->memory[address]), proc->arg[0], REG_SIZE);
+		address = (proc->pc + proc->args[1] % IDX_MOD) % MEM_SIZE;
+		ft_memcpy(&(vm->memory[address]), &(proc->args[0]), REG_SIZE);
 	}
 	return (0);
 }
@@ -93,6 +97,9 @@ int				op_st(t_vm *vm, t_proc *proc)
 */
 int				op_add(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -101,6 +108,9 @@ int				op_add(t_vm *vm, t_proc *proc)
 */
 int				op_sub(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -114,14 +124,15 @@ int				op_sub(t_vm *vm, t_proc *proc)
 int				op_and(t_vm *vm, t_proc *proc)
 {
 	int value;
+	int address;
 
 	if (!proc->arg_types[0] || !proc->arg_types[1]
 		|| proc->arg_types[2] != REG_CODE)
 		return (1);
-	value = proc->arg[0] & proc->arg[1];
+	value = proc->args[0] & proc->args[1];
 	address = (vm->champs[proc->champ_id]->r1
-		+ (proc->arg[2] - 1) * REG_SIZE) % MEM_SIZE;
-	ft_strncpy(&(vm->memory[address]), value, REG_SIZE);
+		+ (proc->args[2] - 1) * REG_SIZE) % MEM_SIZE;
+	ft_memcpy(&(vm->memory[address]), &value, REG_SIZE);
 	return (0);
 }
 
@@ -131,6 +142,9 @@ int				op_and(t_vm *vm, t_proc *proc)
 */
 int				op_or(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -140,6 +154,9 @@ int				op_or(t_vm *vm, t_proc *proc)
 */
 int				op_xor(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -153,7 +170,7 @@ int				op_zjump(t_vm *vm, t_proc *proc)
 	if (vm->champs[proc->champ_id]->carry == 0)
 		return (1); 
 	vm->champs[proc->champ_id]->pc = (proc->pc +
-		proc->arg[0] % IDX_MOD) % MEM_SIZE;
+		proc->args[0] % IDX_MOD) % MEM_SIZE;
 	return (0);
 }
 
@@ -163,6 +180,9 @@ int				op_zjump(t_vm *vm, t_proc *proc)
 */
 int				op_ldi(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -174,13 +194,14 @@ int				op_ldi(t_vm *vm, t_proc *proc)
 */
 int				op_sti(t_vm *vm, t_proc *proc)
 {
-	int	value;
+	// int	value;
+	int address;
 
 	if (proc->arg_types[0] != REG_CODE ||
 		!proc->arg_types[1] || !proc->arg_types[2])
 		return (1);
-	address = (proc->pc + (proc->arg[1] + proc->arg[2]) % IDX_MOD) % MEM_SIZE;
-	ft_strncpy(&(vm->memory[address]), proc->arg[0], REG_SIZE);
+	address = (proc->pc + (proc->args[1] + proc->args[2]) % IDX_MOD) % MEM_SIZE;
+	ft_memcpy(&(vm->memory[address]), &(proc->args[0]), REG_SIZE);
 	return (0);
 }
 
@@ -189,6 +210,9 @@ int				op_sti(t_vm *vm, t_proc *proc)
 */
 int				op_fork(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -197,6 +221,9 @@ int				op_fork(t_vm *vm, t_proc *proc)
 */
 int				op_lld(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -206,6 +233,9 @@ int				op_lld(t_vm *vm, t_proc *proc)
 */
 int				op_lldi(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -214,6 +244,9 @@ int				op_lldi(t_vm *vm, t_proc *proc)
 */
 int				op_lfork(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
 
@@ -222,5 +255,8 @@ int				op_lfork(t_vm *vm, t_proc *proc)
 */
 int				op_aff(t_vm *vm, t_proc *proc)
 {
+	// just to compile
+	if (!vm && !proc)
+		return (1);
 	return (0);
 }
