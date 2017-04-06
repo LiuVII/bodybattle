@@ -44,8 +44,8 @@ const t_op    g_op_tab[17] =
 */
 void	free_mem(t_vm *vm)
 {
-	free(vm);
-	return ;
+	if (!vm)
+		return ;
 }
 
 void	display_usage()
@@ -74,11 +74,31 @@ void	free_and_exit(t_vm *vm, int code)
 		free_mem(vm);
 	if (code == 0)
 		exit(0);
-	ft_putstr_fd("Error message\n", 2);
+	ft_printf("Error: %d\n", code);
 	exit(1);
 }
 
-void	read_cor(t_vm *vm, int fd, int size)
+int		read_num(char *s, int size)
+{
+	int i, res;
+	// char	basestr[16] = "0123456789ABCDEF";
+	unsigned char	c;
+
+	i = 0;
+	res = 0;
+	while (i < size)
+	{
+		c = (unsigned char)s[i];
+		// write(1, &basestr[c / 16], 1);
+		// write(1, &basestr[c % 16], 1);
+		res *= 256;
+		res += c;
+		i++;
+	}
+	return (res);
+}
+
+void	read_cor(t_vm *vm, int fd, int size, int ind)
 {
 	char *buf;
 	int	res;
@@ -86,12 +106,17 @@ void	read_cor(t_vm *vm, int fd, int size)
 	buf = (char*)malloc(size + 1);
 	res = read(fd, buf, size);
 	buf[size] = 0;
-	if (size == 4 && (res < 4 || ft_atoi(buf) != COREWAR_EXEC_MAGIC))
+	if (size == 4 && (res < 4 || read_num(buf, size) != COREWAR_EXEC_MAGIC))
+	{
+		// ft_printf("Magic from file: %d Magic: %d\n", read_num(buf, size), COREWAR_EXEC_MAGIC);
 		free_and_exit(vm, 5);
+	}
 	else if (size == PROG_NAME_LENGTH + 4)
 	{
-		ft_strncpy(vm->champs[vm->champ_num]->info->prog_name, buf, PROG_NAME_LENGTH);
-		vm->champs[vm->champ_num]->info->prog_name[PROG_NAME_LENGTH] = 0;
+		ft_printf("Name1\n");
+		ft_memcpy(vm->champs[ind]->info.prog_name, buf, PROG_NAME_LENGTH);
+		ft_printf("Name2\n");
+		vm->champs[ind]->info.prog_name[PROG_NAME_LENGTH] = 0;
 		// Read program size
 		read(fd, buf, 4);
 		// ! Don't know what to do with it
@@ -99,8 +124,9 @@ void	read_cor(t_vm *vm, int fd, int size)
 	}
 	else if (size == COMMENT_LENGTH)
 	{
-		ft_strncpy(vm->champs[vm->champ_num]->info->comment, buf, COMMENT_LENGTH);
-		vm->champs[vm->champ_num]->info->comment[COMMENT_LENGTH] = 0;
+		ft_printf("Comment\n");
+		ft_memcpy(vm->champs[ind]->info.comment, buf, COMMENT_LENGTH);
+		vm->champs[ind]->info.comment[COMMENT_LENGTH] = 0;
 	}
 	ft_bzero(buf, size);
 	free(buf);
@@ -124,7 +150,7 @@ void save_instr(t_vm *vm, int fd, int pos)
 /*
 ** Save champion
 */
-void save_champ(t_vm *vm, const char *champ_file, int champ_ind)
+void save_champ(t_vm *vm, const char *champ_file, int champ_ind, int ind)
 {
 	int	res;
 	int	i;
@@ -133,13 +159,14 @@ void save_champ(t_vm *vm, const char *champ_file, int champ_ind)
 
 	i = 0;
 	fd = -1;
-	next_num = 0;
-	while (vm->champs[i])
+	next_num = 1;
+	while (i < ind)
 	{
 		if (champ_ind == vm->champs[i]->ind)
 			free_and_exit(vm, 4);
 		if (vm->champs[i]->ind > next_num)
 			next_num = vm->champs[i]->ind + 1;
+		i++;
 	}
 	res = ft_strlen(champ_file);
 	if (res < 5 || ft_strcmp(&(champ_file[res-4]), ".cor") != 0
@@ -147,23 +174,24 @@ void save_champ(t_vm *vm, const char *champ_file, int champ_ind)
 		free_and_exit(vm, 3);
 	
 	// Check magic
-	read_cor(vm, fd, 4);
+	read_cor(vm, fd, 4, ind);
 	// Allocate memory for champ and increase counter
-	vm->champs[vm->champ_num] = (t_champ*)malloc(sizeof(t_champ));
+	vm->champs[ind] = (t_champ*)malloc(sizeof(t_champ));
 	// Set name and save size (+4 because of padding)
-	read_cor(vm, fd, PROG_NAME_LENGTH + 4);
+	read_cor(vm, fd, PROG_NAME_LENGTH + 4, ind);
 	// Set comment
-	read_cor(vm, fd, COMMENT_LENGTH);
+	read_cor(vm, fd, COMMENT_LENGTH, ind);
 	// Set defaults
-	vm->champs[vm->champ_num]->carry = 0;
-	vm->champs[vm->champ_num]->live = 0;
+	vm->champs[ind]->carry = 0;
+	vm->champs[ind]->live = 0;
 	// Set initial PC
 	// ! Should be randomly given by VM
-	vm->champs[vm->champ_num]->pc = 0;
-	vm->champs[vm->champ_num]->ind = (champ_ind == 0) ? next_num : champ_ind;
-	vm->champ_num++;
+	vm->champs[ind]->pc = (MEM_SIZE * ind) / vm->champ_num;
+	vm->champs[ind]->ind = (champ_ind == 0) ? next_num : champ_ind;
 	// Save instructions
-	save_instr(vm, fd, vm->champs[vm->champ_num]->pc);
+	save_instr(vm, fd, vm->champs[ind]->pc);
+	ft_printf("Champion \'%s\' saved\n", vm->champs[ind]->info.prog_name);
+	close(fd);
 }
 
 /*
@@ -173,9 +201,11 @@ void	parse_flags(t_vm *vm, int ac, char const **av)
 {
 	int	i;
 	int	num;
+	int arg_arr[2][MAX_PLAYERS];
 
 	// ! Simple parser should be replaced with solid one
 	i = 0;
+	ft_bzero(arg_arr, sizeof(int) * 8);
 	while (av[i])
 	{
 		num = 0;
@@ -194,15 +224,21 @@ void	parse_flags(t_vm *vm, int ac, char const **av)
 		}
 		if (vm->champ_num + 1 > MAX_PLAYERS)
 				free_and_exit(vm, 1);
-		save_champ(vm, av[i], num);
+		arg_arr[0][vm->champ_num] = i;
+		arg_arr[1][vm->champ_num] = num;
+		vm->champ_num++;
 		i++;
-	} 
+	}
+	i = -1;
+	while (++i < vm->champ_num)
+		save_champ(vm, av[arg_arr[0][i]], arg_arr[1][i], i);
 }
 
 void	init_vm(t_vm *vm)
 {
 	vm->cycle_to_die = CYCLE_TO_DIE;
 	vm->cycle_to_dump = -1;
+	vm->last_alive = -1;
 	vm->cycle = 0;
 	vm->champ_num = 0;
 	vm->nbr_live_calls = 0;
@@ -227,20 +263,15 @@ int		get_arg(char *mem, int size, int *pos)
 	return (ans);
 }
 
-void	proc_init(t_proc *proc)
+void	proc_init(t_proc **proc)
 {
-	proc = (t_proc*)malloc(sizeof(t_proc));
-	ft_bzero(proc, sizeof(t_proc));
+	*proc = (t_proc*)malloc(sizeof(t_proc));
+	ft_bzero(*proc, sizeof(t_proc));
 }
-
-
 
 /*
 ** Loading instructions with current params for subsequent execution.
-** ! Currently loaded form champ memory but should be from VM_memory,
-** or champ memory should change
 */
-
 void	load_instr(t_vm *vm, t_champ *champ, t_proc *proc, int ind)
 {
 	int	pos;
@@ -249,17 +280,23 @@ void	load_instr(t_vm *vm, t_champ *champ, t_proc *proc, int ind)
 
 	pos = champ->pc;
 	// If corrupted instruction dunno what to do with it
-	if (vm->memory[pos] > 16)
+	ft_printf("Check if inst is corrupted\n");
+	if (vm->memory[pos] > 16 /*|| vm->memory[pos] < 1*/)
 	{
 		champ->pc = (pos + 1) % MEM_SIZE;
 		return ;
 	}
-	proc_init(proc);
+	ft_printf("Init proc\n");
+	proc_init(&proc);
+	ft_printf("Proc initialized\n");
 	proc->champ_id = vm->champ_num - ind - 1;
+	write(1, &vm->memory[pos], 1);
+	write(1,"\n",1);
 	proc->proc_id = vm->memory[pos] - 1;
 	proc->exec_cycle = g_op_tab[proc->proc_id].cycles;
 	pos = (pos + 1) % MEM_SIZE;
 	// if there's no encoding byte (live has a special condition of 4 bytes)
+	ft_printf("Check for encoding byte\n");
 	if (proc->proc_id == 0)
 		proc->args[0] = get_arg(vm->memory, 4, &pos);
 	else if (g_op_tab[proc->proc_id].arg_code_byte == 0)
@@ -267,6 +304,7 @@ void	load_instr(t_vm *vm, t_champ *champ, t_proc *proc, int ind)
 	else
 	{
 		// decipher encoding byte and record params
+		ft_printf("Decipher encoding byte\n");
 		arg_byte = vm->memory[pos];
 		pos = (pos + 1) % MEM_SIZE;
 		proc->arg_types[0] = arg_byte >> 6;
@@ -285,6 +323,7 @@ void	load_instr(t_vm *vm, t_champ *champ, t_proc *proc, int ind)
 			i++;
 		}
 	}
+	ft_printf("Encoding byte check completed\n");
 	champ->pc = pos;
 }
 
@@ -324,6 +363,7 @@ int		check_alive(t_vm *vm)
 		else
 		{
 			vm->champs[i]->live = 0;
+			vm->last_alive = vm->champ_num;
 			counter++;
 		}
 		i++;
@@ -333,9 +373,9 @@ int		check_alive(t_vm *vm)
 
 void	game_over(t_vm *vm)
 {
-	if (vm->last_alive > 0)
+	if (vm->last_alive >= 0)
 		ft_printf("Player %d (%s) won\n", vm->champs[vm->last_alive]->ind,
-			vm->champs[vm->last_alive]->info->prog_name);
+			vm->champs[vm->last_alive]->info.prog_name);
 	else
 		ft_putstr("The many men, so beautiful!\nAnd they all dead did lie.\n");
 	free_and_exit(vm, 0);
@@ -348,7 +388,7 @@ void	mem_dump(t_vm *vm)
 	unsigned char	c;
 
 	i = 0;
-	while ((vm->memory)[i])
+	while (i < MEM_SIZE)
 	{
 		c = (unsigned char)(vm->memory)[i];
 		write(1, &basestr[c / 16], 1);
@@ -375,9 +415,11 @@ void	run_vm(t_vm *vm)
 		i = 0;
 		while (i < vm->champ_num)
 		{
+			ft_printf("Load instruction for champ %d\n", i);
 			if (vm->procs[i] == 0
 				&& vm->champs[vm->champ_num - i - 1]->live >= 0)
 				load_instr(vm, vm->champs[vm->champ_num - i - 1], vm->procs[i], i);
+			ft_printf("Instruction loaded\n");
 			i++;
 		}
 		// Execute instructions
@@ -387,9 +429,11 @@ void	run_vm(t_vm *vm)
 			if (vm->procs[i] != 0
 				&& vm->champs[vm->champ_num - i - 1]->live >= 0)
 			{
+				ft_printf("Execute instruction for champ %d\n", i);
 				vm->procs[i]->exec_cycle -= 1;
 				if (vm->procs[i]->exec_cycle == 0)
 					exec_instr(vm, vm->procs[i], i);
+				ft_printf("Instruction executed\n");
 			}
 			i++;
 		}
@@ -399,8 +443,9 @@ void	run_vm(t_vm *vm)
 			mem_dump(vm);
 		if (vm->cycle == CYCLE_TO_DIE)
 		{
+			ft_printf("Check alive\n");
 			vm->checks = (vm->checks + 1) % MAX_CHECKS;
-			if (check_alive(vm) == 0)
+			if (check_alive(vm) < 2)
 				break ;
 		}
 		if (vm->nbr_live_calls == NBR_LIVE || (vm->checks == 0 && vm->cycle != 0))
@@ -410,6 +455,7 @@ void	run_vm(t_vm *vm)
 		}
 		else
 			vm->cycle++;
+		break;
 	}
 	game_over(vm);
 }
@@ -424,7 +470,11 @@ int	main(int argc, char const **argv)
 		return (0);
 	}
 	init_vm(&vm);
+	ft_printf("VM initialized\n");
 	parse_flags(&vm, argc-1, &(argv[1]));
+	ft_printf("Args parsed\n");
+	mem_dump(&vm);
 	run_vm(&vm);
+	ft_printf("VM run complete\n");
 	return (0);
 }

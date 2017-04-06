@@ -22,7 +22,7 @@ typedef struct	s_champ
 {
 	int			r1;
 	int			ind;
-	header_t*	info;
+	header_t	info;
 	int			pc;
 	int			carry;
 	char		regs[REG_NUMBER][REG_SIZE];
