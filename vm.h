@@ -108,4 +108,6 @@ int				op_zjump(t_vm *vm, t_proc *proc);
 // 	{16, &op_aff}
 // };
 
+void	*ft_memcpy_sw_endian(void *dst, const void *src, size_t n, size_t m);
+
 #endif

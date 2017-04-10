@@ -191,8 +191,13 @@ void save_champ(t_vm *vm, const char *champ_file, int champ_ind, int ind)
 	// ? Maybe should be randomly given by VM
 	vm->champs[ind]->pc = (MEM_SIZE * ind) / vm->champ_num;
 	vm->champs[ind]->ind = (champ_ind == 0) ? next_num : champ_ind;
-	// Store number of the champion in the first reg (same as in the system: little endian)
-	ft_memcpy(&(vm->champs[ind]->regs[0][0]), &(vm->champs[ind]->ind), REG_SIZE);
+	// Store number of the champion in the first reg
+	// Default: small (because args stored as ints, and get_arg converts them)
+	ft_memcpy(&(vm->champs[ind]->regs[0][0]),
+		&(vm->champs[ind]->ind), REG_SIZE);
+	// Swapped: big
+	// ft_memcpy_sw_endian(&(vm->champs[ind]->regs[0][0]),
+	// 	&(vm->champs[ind]->ind), REG_SIZE, sizeof(int));
 	// Save instructions
 	save_instr(vm, fd, vm->champs[ind]->pc);
 	ft_printf("Champion \'%s\' saved\n", vm->champs[ind]->info.prog_name);
@@ -291,6 +296,7 @@ int	load_instr(t_vm *vm, t_champ *champ/*, t_proc **iproc*/, int ind)
 	int arg_byte;
 	int	i;
 	t_proc *proc;
+	int dir_type;
 
 	pos = champ->pc;
 	// If corrupted instruction dunno what to do with it
@@ -314,12 +320,14 @@ int	load_instr(t_vm *vm, t_champ *champ/*, t_proc **iproc*/, int ind)
 	proc->exec_cycle = g_op_tab[proc->proc_id].cycles;
 	ft_printf("Will be executed in %d cycles\n", proc->exec_cycle);
 	pos = (pos + 1) % MEM_SIZE;
+	// Take into account the last number in g_op tab 'smth' for DIR
+	dir_type = (g_op_tab[proc->proc_id].smth == 0) ? T_DIR: T_IND;
 	// if there's no encoding byte (live has a special condition of 4 bytes)
 	ft_printf("Check for encoding byte\n");
 	if (proc->proc_id == 0)
 		proc->args[0] = get_arg(vm->memory, 4, &pos);
 	else if (g_op_tab[proc->proc_id].arg_code_byte == 0)
-		proc->args[0] = get_arg(vm->memory, T_DIR, &pos);
+		proc->args[0] = get_arg(vm->memory, dir_type, &pos);
 	else
 	{
 		// decipher encoding byte and record params
@@ -336,7 +344,7 @@ int	load_instr(t_vm *vm, t_champ *champ/*, t_proc **iproc*/, int ind)
 			if (proc->arg_types[i] == REG_CODE)
 				proc->args[i] = get_arg(vm->memory, T_REG, &pos);
 			else if (proc->arg_types[i] == DIR_CODE)
-				proc->args[i] = get_arg(vm->memory, T_DIR, &pos);
+				proc->args[i] = get_arg(vm->memory, dir_type, &pos);
 			else if (proc->arg_types[i] == IND_CODE)
 				proc->args[i] = get_arg(vm->memory, T_IND, &pos);
 			i++;
