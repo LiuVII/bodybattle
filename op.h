@@ -58,8 +58,8 @@
 typedef char	t_arg_type;
 
 #define T_REG					1
-#define T_DIR					2
-#define T_IND					4
+#define T_DIR					4
+#define T_IND					2
 #define T_LAB					8
 
 /*
